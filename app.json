@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Yam Sushi Contest",
+    "slug": "yam-sushi-contest",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "yamsushi",
+    "userInterfaceStyle": "dark",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

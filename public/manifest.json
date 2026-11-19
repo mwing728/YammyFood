@@ -1,0 +1,10 @@
+{
+  "name": "Yam Sushi Contest",
+  "short_name": "Yam Sushi",
+  "description": "Live sushi eating contest tally and leaderboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1419",
+  "theme_color": "#0f1419",
+  "orientation": "portrait"
+}
