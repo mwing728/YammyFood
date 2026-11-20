@@ -46,8 +46,8 @@ export default function HomeScreen() {
     return true;
   }, [name]);
 
-  const goToRoom = (roomId: string, code: string, isHost: boolean) => {
-    void setActiveRoom({ roomId, code, isHost });
+  const goToRoom = async (roomId: string, code: string, isHost: boolean) => {
+    await setActiveRoom({ roomId, code, isHost });
     router.push(`/room/${roomId}`);
   };
 
@@ -57,7 +57,7 @@ export default function HomeScreen() {
     setLoading(true);
     try {
       const room = await createRoom();
-      goToRoom(room.id, room.code, true);
+      await goToRoom(room.id, room.code, true);
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Could not create room.");
     } finally {
@@ -84,7 +84,7 @@ export default function HomeScreen() {
         Alert.alert("Ended", "This contest has ended.");
         return;
       }
-      goToRoom(room.id, room.code, false);
+      await goToRoom(room.id, room.code, false);
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Could not join.");
     } finally {
@@ -93,7 +93,7 @@ export default function HomeScreen() {
   };
 
   const onResume = () => {
-    if (resume) goToRoom(resume.roomId, resume.code, false);
+    if (resume) void goToRoom(resume.roomId, resume.code, false);
   };
 
   return (

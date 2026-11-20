@@ -36,9 +36,9 @@ import {
 import {
   cacheCounts,
   getActiveRoom,
-  getCachedCounts,
   getDisplayName,
   getOrCreateDeviceId,
+  isHostedRoom,
   setActiveRoom,
 } from "@/lib/storage";
 import type { Player, Room } from "@/lib/types";
@@ -49,6 +49,17 @@ const SAVE_DELAY_MS = 300;
 export default function RoomScreen() {
   const { id: roomId } = useLocalSearchParams<{ id: string }>();
   const rid = Array.isArray(roomId) ? roomId[0] : roomId;
+  if (!rid) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.muted}>Unable to load contest.</Text>
+      </View>
+    );
+  }
+  return <RoomContest key={rid} roomId={rid} />;
+}
+
+function RoomContest({ roomId: rid }: { roomId: string }) {
 
   const [loading, setLoading] = useState(true);
   const [room, setRoom] = useState<Room | null>(null);
@@ -128,15 +139,17 @@ export default function RoomScreen() {
 
         const active = await getActiveRoom();
         if (cancelled) return;
-        setIsHost(Boolean(active && active.roomId === activeRoomId && active.isHost));
+        const host =
+          (await isHostedRoom(activeRoomId)) ||
+          Boolean(active && active.roomId === activeRoomId && active.isHost);
+        setIsHost(host);
 
         const deviceId = await getOrCreateDeviceId();
         const displayName = (await getDisplayName()) ?? "Player";
 
         let player = await fetchPlayerInRoom(activeRoomId, deviceId);
         if (!player) {
-          const cached = await getCachedCounts(activeRoomId);
-          player = await joinRoomAsPlayer(activeRoomId, deviceId, displayName, cached);
+          player = await joinRoomAsPlayer(activeRoomId, deviceId, displayName);
         }
         if (cancelled) return;
 
@@ -152,7 +165,7 @@ export default function RoomScreen() {
         await setActiveRoom({
           roomId: activeRoomId,
           code: r.code,
-          isHost: Boolean(active && active.roomId === activeRoomId && active.isHost),
+          isHost: host,
         });
         if (cancelled) return;
 
@@ -180,7 +193,7 @@ export default function RoomScreen() {
   }, [rid, persistCounts, debouncedSave]);
 
   const bump = (field: keyof TallyCounts, delta: number) => {
-    if (room?.status === "ended") return;
+    if (!room || room.id !== rid || room.status === "ended" || me?.room_id !== rid) return;
     setCounts((prev) => {
       const next = { ...prev, [field]: Math.max(0, prev[field] + delta) };
       if (rid) void cacheCounts(rid, next);
@@ -234,6 +247,7 @@ export default function RoomScreen() {
   const locked = room.status === "ended";
 
   return (
+    <View style={styles.screen}>
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.content}
@@ -286,57 +300,66 @@ export default function RoomScreen() {
         roomEnded={locked}
       />
 
-      {isHost && !locked ? (
-        confirmEnd ? (
-          <View style={styles.endConfirm}>
-            <Text style={styles.endConfirmTitle}>End contest?</Text>
-            <Text style={styles.endConfirmBody}>
-              Scores stay on the board; tallying will be locked.
-            </Text>
-            {endError ? <Text style={styles.endError}>{endError}</Text> : null}
-            <View style={styles.endActions}>
-              <Pressable
-                style={styles.endCancel}
-                onPress={() => {
-                  setConfirmEnd(false);
-                  setEndError(null);
-                }}
-                disabled={ending}
-              >
-                <Text style={styles.endCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.endConfirmBtn, ending && styles.btnDisabled]}
-                onPress={confirmEndContest}
-                disabled={ending}
-              >
-                <Text style={styles.endConfirmBtnText}>
-                  {ending ? "Ending…" : "End"}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : (
-          <Pressable
-            style={styles.endBtn}
-            onPress={() => {
-              setEndError(null);
-              setConfirmEnd(true);
-            }}
-          >
-            <Text style={styles.endBtnText}>End contest</Text>
-          </Pressable>
-        )
-      ) : null}
-
       <Pressable style={styles.homeLink} onPress={() => router.push("/")}>
         <Text style={styles.homeLinkText}>Home (scores saved)</Text>
       </Pressable>
     </ScrollView>
+
+    {isHost && !locked ? (
+      <View style={styles.footer}>
+        <Pressable
+          style={styles.endBtn}
+          accessibilityRole="button"
+          onPress={() => {
+            setEndError(null);
+            setConfirmEnd(true);
+          }}
+        >
+          <Text style={styles.endBtnText}>End contest</Text>
+        </Pressable>
+      </View>
+    ) : null}
+
+    {confirmEnd ? (
+      <View style={styles.modalBackdrop}>
+        <View style={styles.endConfirm}>
+          <Text style={styles.endConfirmTitle}>End contest?</Text>
+          <Text style={styles.endConfirmBody}>
+            Scores stay on the board. Nobody will be able to add more pieces.
+          </Text>
+          {endError ? <Text style={styles.endError}>{endError}</Text> : null}
+          <View style={styles.endActions}>
+            <Pressable
+              style={styles.endCancel}
+              accessibilityRole="button"
+              onPress={() => {
+                setConfirmEnd(false);
+                setEndError(null);
+              }}
+              disabled={ending}
+            >
+              <Text style={styles.endCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.endConfirmBtn, ending && styles.btnDisabled]}
+              accessibilityRole="button"
+              onPress={() => void confirmEndContest()}
+              disabled={ending}
+            >
+              <Text style={styles.endConfirmBtnText}>
+                {ending ? "Ending…" : "End contest"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { flex: 1, backgroundColor: colors.bg },
   content: {
     padding: 20,
@@ -399,21 +422,36 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 8,
   },
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.bg,
+  },
   endBtn: {
-    marginTop: 24,
-    borderWidth: 1,
-    borderColor: colors.accentDim,
-    paddingVertical: 14,
+    backgroundColor: colors.accent,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
   },
-  endBtnText: { color: colors.accent, fontWeight: "600" },
+  endBtnText: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  modalBackdrop: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(0,0,0,0.72)",
+    justifyContent: "center",
+    padding: 24,
+  },
   endConfirm: {
-    marginTop: 24,
     borderWidth: 1,
     borderColor: colors.accentDim,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     backgroundColor: colors.card,
   },
   endConfirmTitle: {

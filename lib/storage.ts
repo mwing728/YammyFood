@@ -9,6 +9,7 @@ const KEYS = {
   activeRoomCode: "ysc_active_room_code",
   cachedCounts: "ysc_cached_counts",
   isHost: "ysc_is_host",
+  hostedRooms: "ysc_hosted_rooms",
 } as const;
 
 export async function getOrCreateDeviceId(): Promise<string> {
@@ -37,11 +38,31 @@ export type ActiveRoom = {
   isHost: boolean;
 };
 
+async function readHostedRooms(): Promise<string[]> {
+  const raw = await AsyncStorage.getItem(KEYS.hostedRooms);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function isHostedRoom(roomId: string): Promise<boolean> {
+  const hosted = await readHostedRooms();
+  return hosted.includes(roomId);
+}
+
 export async function setActiveRoom(room: ActiveRoom): Promise<void> {
+  const hosted = new Set(await readHostedRooms());
+  if (room.isHost) hosted.add(room.roomId);
+  const isHost = room.isHost || hosted.has(room.roomId);
   await AsyncStorage.multiSet([
     [KEYS.activeRoomId, room.roomId],
     [KEYS.activeRoomCode, room.code],
-    [KEYS.isHost, room.isHost ? "1" : "0"],
+    [KEYS.isHost, isHost ? "1" : "0"],
+    [KEYS.hostedRooms, JSON.stringify([...hosted])],
   ]);
 }
 

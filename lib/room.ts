@@ -53,8 +53,7 @@ export async function getRoomById(id: string): Promise<Room | null> {
 export async function joinRoomAsPlayer(
   roomId: string,
   deviceId: string,
-  displayName: string,
-  existingCounts?: TallyCounts
+  displayName: string
 ): Promise<Player> {
   const supabase = getSupabase();
   const { data: existing } = await supabase
@@ -84,10 +83,10 @@ export async function joinRoomAsPlayer(
       room_id: roomId,
       device_id: deviceId,
       display_name: displayName.trim(),
-      sashimi: existingCounts?.sashimi ?? 0,
-      basic_roll: existingCounts?.basic_roll ?? 0,
-      sushi: existingCounts?.sushi ?? 0,
-      special_roll: existingCounts?.special_roll ?? 0,
+      sashimi: 0,
+      basic_roll: 0,
+      sushi: 0,
+      special_roll: 0,
     })
     .select()
     .single();
