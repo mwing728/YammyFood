@@ -1,6 +1,13 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
 import { SCORING } from "@/lib/scoring";
 import { colors } from "@/constants/theme";
+
+const PHOTOS: Record<keyof typeof SCORING, ImageSourcePropType> = {
+  sashimi: require("../assets/sashimi.jpg"),
+  basic_roll: require("../assets/basic-roll.jpg"),
+  sushi: require("../assets/nigiri.jpg"),
+  special_roll: require("../assets/special-roll.jpg"),
+};
 
 type Props = {
   label: string;
@@ -22,30 +29,39 @@ export function TallyRow({
   const pointsPer = SCORING[field];
   return (
     <View style={styles.row}>
-      <View style={styles.labelBlock}>
-        <Text style={styles.label}>{label}</Text>
-        <Text style={styles.sub}>
-          {pointsPer} pt{pointsPer > 1 ? "s" : ""} / piece
-        </Text>
-      </View>
-      <View style={styles.controls}>
-        <Pressable
-          style={[styles.btn, (count === 0 || disabled) && styles.btnDisabled]}
-          onPress={onDecrement}
-          disabled={disabled || count === 0}
-          accessibilityLabel={`Decrease ${label}`}
-        >
-          <Text style={styles.btnText}>−</Text>
-        </Pressable>
-        <Text style={styles.count}>{count}</Text>
-        <Pressable
-          style={[styles.btnPrimary, disabled && styles.btnDisabled]}
-          onPress={onIncrement}
-          disabled={disabled}
-          accessibilityLabel={`Increase ${label}`}
-        >
-          <Text style={styles.btnText}>+</Text>
-        </Pressable>
+      <Image
+        source={PHOTOS[field]}
+        style={styles.photo}
+        resizeMode="cover"
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      />
+      <View style={styles.body}>
+        <View style={styles.labelBlock}>
+          <Text style={styles.label}>{label}</Text>
+          <Text style={styles.sub}>
+            {pointsPer} pt{pointsPer > 1 ? "s" : ""} / piece
+          </Text>
+        </View>
+        <View style={styles.controls}>
+          <Pressable
+            style={[styles.btn, (count === 0 || disabled) && styles.btnDisabled]}
+            onPress={onDecrement}
+            disabled={disabled || count === 0}
+            accessibilityLabel={`Decrease ${label}`}
+          >
+            <Text style={styles.btnText}>−</Text>
+          </Pressable>
+          <Text style={styles.count}>{count}</Text>
+          <Pressable
+            style={[styles.btnPrimary, disabled && styles.btnDisabled]}
+            onPress={onIncrement}
+            disabled={disabled}
+            accessibilityLabel={`Increase ${label}`}
+          >
+            <Text style={styles.btnText}>+</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -53,20 +69,30 @@ export function TallyRow({
 
 const styles = StyleSheet.create({
   row: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+  },
+  photo: {
+    width: "100%",
+    height: 148,
+    backgroundColor: "#11161c",
+  },
+  body: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  labelBlock: { flex: 1, paddingRight: 12 },
+  labelBlock: { flex: 1, minWidth: 72 },
   label: { color: colors.text, fontSize: 17, fontWeight: "600" },
   sub: { color: colors.muted, fontSize: 13, marginTop: 4 },
-  controls: { flexDirection: "row", alignItems: "center", gap: 8 },
+  controls: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 0 },
   btn: {
     width: 48,
     height: 48,
