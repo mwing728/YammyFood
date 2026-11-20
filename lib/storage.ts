@@ -55,21 +55,32 @@ export async function getActiveRoom(): Promise<ActiveRoom | null> {
   return { roomId, code, isHost: isHost === "1" };
 }
 
+function countsKey(roomId: string): string {
+  return `${KEYS.cachedCounts}:${roomId}`;
+}
+
 export async function clearActiveRoom(): Promise<void> {
-  await AsyncStorage.multiRemove([
+  const roomId = await AsyncStorage.getItem(KEYS.activeRoomId);
+  const keys: string[] = [
     KEYS.activeRoomId,
     KEYS.activeRoomCode,
     KEYS.isHost,
     KEYS.cachedCounts,
-  ]);
+  ];
+  if (roomId) keys.push(countsKey(roomId));
+  await AsyncStorage.multiRemove(keys);
 }
 
-export async function cacheCounts(counts: TallyCounts): Promise<void> {
-  await AsyncStorage.setItem(KEYS.cachedCounts, JSON.stringify(counts));
+export async function cacheCounts(
+  roomId: string,
+  counts: TallyCounts
+): Promise<void> {
+  await AsyncStorage.setItem(countsKey(roomId), JSON.stringify(counts));
+  await AsyncStorage.removeItem(KEYS.cachedCounts);
 }
 
-export async function getCachedCounts(): Promise<TallyCounts> {
-  const raw = await AsyncStorage.getItem(KEYS.cachedCounts);
+export async function getCachedCounts(roomId: string): Promise<TallyCounts> {
+  const raw = await AsyncStorage.getItem(countsKey(roomId));
   if (!raw) return emptyCounts();
   try {
     return { ...emptyCounts(), ...JSON.parse(raw) };

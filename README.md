@@ -12,7 +12,7 @@ Mobile-first web app for a live sushi eating contest. Everyone taps a **join lin
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor** and run the full script in [`supabase/migration.sql`](supabase/migration.sql).
-3. Enable **Realtime** for `players`: **Database → Publications → `supabase_realtime`** → turn on `players` (or follow the note in the SQL file).
+3. Enable **Realtime** for `players` and `rooms`: **Database → Publications → `supabase_realtime`** → turn on both tables. If `rooms` is already listed, leave it; that publication is already set up.
 4. Copy **Project URL** and **anon public** key from **Settings → API**.
 
 ### 2. Local env

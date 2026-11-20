@@ -1,6 +1,6 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabase } from "./supabase";
-import type { Player } from "./types";
+import type { Player, Room } from "./types";
 
 export function subscribeToRoomPlayers(
   roomId: string,
@@ -36,6 +36,29 @@ export function subscribeToRoomPlayers(
     .subscribe();
 
   return channel;
+}
+
+export function subscribeToRoomStatus(
+  roomId: string,
+  onChange: (status: Room["status"]) => void
+): RealtimeChannel {
+  const supabase = getSupabase();
+  return supabase
+    .channel(`room-status-${roomId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "rooms",
+        filter: `id=eq.${roomId}`,
+      },
+      (payload) => {
+        const status = (payload.new as { status?: Room["status"] }).status;
+        if (status === "active" || status === "ended") onChange(status);
+      }
+    )
+    .subscribe();
 }
 
 export function unsubscribeChannel(channel: RealtimeChannel): void {

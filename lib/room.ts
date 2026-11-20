@@ -139,11 +139,14 @@ export async function updatePlayerCounts(
   return data as Player;
 }
 
-export async function endRoom(roomId: string): Promise<void> {
+export async function endRoom(roomId: string): Promise<Room> {
   const supabase = getSupabase();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("rooms")
     .update({ status: "ended" })
-    .eq("id", roomId);
+    .eq("id", roomId)
+    .select()
+    .single();
   if (error) throw error;
+  return data as Room;
 }
