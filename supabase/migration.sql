@@ -16,8 +16,11 @@ create table if not exists players (
   basic_roll int default 0 check (basic_roll >= 0),
   sushi int default 0 check (sushi >= 0),
   special_roll int default 0 check (special_roll >= 0),
+  hot_food int default 0 check (hot_food >= 0),
+  large_hot_food int default 0 check (large_hot_food >= 0),
   total_points int generated always as (
     sashimi + basic_roll + (sushi * 2) + (special_roll * 2)
+    + hot_food + (large_hot_food * 3)
   ) stored,
   updated_at timestamptz default now(),
   unique (room_id, device_id)

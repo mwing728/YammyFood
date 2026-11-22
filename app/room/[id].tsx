@@ -25,8 +25,10 @@ import {
 import { subscribeToRoomPlayers, unsubscribeChannel } from "@/lib/realtime";
 import {
   computeTotal,
+  countsFromRecord,
   emptyCounts,
   TALLY_LABELS,
+  TALLY_ORDER,
   type TallyCounts,
 } from "@/lib/scoring";
 import {
@@ -124,18 +126,9 @@ export default function RoomScreen() {
         }
 
         setMe(player);
-        setCounts({
-          sashimi: player.sashimi,
-          basic_roll: player.basic_roll,
-          sushi: player.sushi,
-          special_roll: player.special_roll,
-        });
-        await cacheCounts({
-          sashimi: player.sashimi,
-          basic_roll: player.basic_roll,
-          sushi: player.sushi,
-          special_roll: player.special_roll,
-        });
+        const loaded = countsFromRecord(player);
+        setCounts(loaded);
+        await cacheCounts(loaded);
         await setActiveRoom({
           roomId: rid,
           code: r.code,
@@ -249,7 +242,7 @@ export default function RoomScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>Your tally</Text>
-      {(Object.keys(TALLY_LABELS) as (keyof TallyCounts)[]).map((field) => (
+      {TALLY_ORDER.map((field) => (
         <TallyRow
           key={field}
           label={TALLY_LABELS[field]}

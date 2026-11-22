@@ -2,7 +2,7 @@
 
 Mobile-first web app for a live sushi eating contest. Everyone taps a **join link**, enters a name once, and tallies their own score while a **live leaderboard** updates.
 
-**Scoring:** sashimi & basic rolls **1 pt/piece** · nigiri (sushi) & special rolls **2 pts/piece**.
+**Scoring:** sashimi, basic rolls & hot food **1 pt/piece** · nigiri & special rolls **2 pts/piece** · large hot food **3 pts/piece**.
 
 **Cost:** Supabase free tier + free static hosting (Vercel or Cloudflare Pages). No app installs for players.
 
@@ -14,6 +14,7 @@ Mobile-first web app for a live sushi eating contest. Everyone taps a **join lin
 2. Open **SQL Editor** and run the full script in [`supabase/migration.sql`](supabase/migration.sql).
 3. Enable **Realtime** for `players`: **Database → Publications → `supabase_realtime`** → turn on `players` (or follow the note in the SQL file).
 4. Copy **Project URL** and **anon public** key from **Settings → API**.
+5. If you already ran an older `migration.sql`, apply [`supabase/migrations/add_hot_food.sql`](supabase/migrations/add_hot_food.sql) for hot food categories.
 
 ### 2. Local env
 
@@ -64,6 +65,8 @@ Output is in `dist/` (single-page app; `vercel.json` rewrites all paths to `inde
 1. Connect repo or upload `dist/` after local build (Pages can run `npm run export:web` in CI).
 2. Set the same env vars for build.
 3. Share your `*.pages.dev` URL.
+
+After pushing app updates that need new DB columns: run `supabase/migrations/add_hot_food.sql` on Supabase, then redeploy on Vercel (env vars unchanged).
 
 ## Features
 

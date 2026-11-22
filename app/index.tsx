@@ -159,8 +159,8 @@ export default function HomeScreen() {
       </Pressable>
 
       <Text style={styles.footnote}>
-        Scoring: sashimi & basic rolls 1 pt/piece · nigiri & special rolls 2
-        pts/piece
+        Scoring: sashimi, basic rolls & hot food 1 pt · nigiri & special rolls 2
+        pts · large hot food 3 pts
       </Text>
     </View>
   );
