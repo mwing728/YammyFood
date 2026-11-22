@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -74,6 +73,7 @@ function RoomContest({ roomId: rid }: { roomId: string }) {
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [ending, setEnding] = useState(false);
   const [endError, setEndError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const countsRef = useRef(counts);
   const playerIdRef = useRef<string | null>(null);
@@ -132,9 +132,7 @@ function RoomContest({ roomId: rid }: { roomId: string }) {
         const r = await getRoomById(activeRoomId);
         if (cancelled) return;
         if (!r) {
-          Alert.alert("Not found", "This room does not exist.", [
-            { text: "OK", onPress: () => router.replace("/") },
-          ]);
+          setLoadError("This room does not exist.");
           return;
         }
         setRoom(r);
@@ -158,7 +156,7 @@ function RoomContest({ roomId: rid }: { roomId: string }) {
         setMe(player);
         const loaded = countsFromRecord(player);
         setCounts(loaded);
-        await cacheCounts(loaded);
+        await cacheCounts(activeRoomId, loaded);
         await setActiveRoom({
           roomId: activeRoomId,
           code: r.code,
@@ -173,7 +171,8 @@ function RoomContest({ roomId: rid }: { roomId: string }) {
           );
         });
       } catch (e) {
-        Alert.alert("Error", e instanceof Error ? e.message : "Could not load room.");
+        const message = e instanceof Error ? e.message : "Could not load room.";
+        setLoadError(message);
       } finally {
         setLoading(false);
       }
@@ -236,6 +235,10 @@ function RoomContest({ roomId: rid }: { roomId: string }) {
     return (
       <View style={styles.center}>
         <Text style={styles.muted}>Unable to load contest.</Text>
+        {loadError ? <Text style={styles.loadError}>{loadError}</Text> : null}
+        <Pressable style={styles.shareBtn} onPress={() => router.replace("/")}>
+          <Text style={styles.shareBtnText}>Back home</Text>
+        </Pressable>
       </View>
     );
   }
@@ -371,7 +374,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.bg,
   },
-  muted: { color: colors.muted },
+  muted: { color: colors.muted, marginBottom: 12, textAlign: "center" },
+  loadError: {
+    color: colors.accent,
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 16,
+    paddingHorizontal: 24,
+  },
   offlineBanner: {
     backgroundColor: "#3d3520",
     padding: 10,

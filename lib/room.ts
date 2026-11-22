@@ -83,12 +83,6 @@ export async function joinRoomAsPlayer(
       room_id: roomId,
       device_id: deviceId,
       display_name: displayName.trim(),
-      sashimi: existingCounts?.sashimi ?? 0,
-      basic_roll: existingCounts?.basic_roll ?? 0,
-      sushi: existingCounts?.sushi ?? 0,
-      special_roll: existingCounts?.special_roll ?? 0,
-      hot_food: existingCounts?.hot_food ?? 0,
-      large_hot_food: existingCounts?.large_hot_food ?? 0,
     })
     .select()
     .single();
