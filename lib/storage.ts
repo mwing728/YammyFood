@@ -9,6 +9,7 @@ const KEYS = {
   activeRoomCode: "ysc_active_room_code",
   cachedCounts: "ysc_cached_counts",
   isHost: "ysc_is_host",
+  hostedRooms: "ysc_hosted_rooms",
 } as const;
 
 export async function getOrCreateDeviceId(): Promise<string> {
@@ -37,11 +38,31 @@ export type ActiveRoom = {
   isHost: boolean;
 };
 
+async function readHostedRooms(): Promise<string[]> {
+  const raw = await AsyncStorage.getItem(KEYS.hostedRooms);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function isHostedRoom(roomId: string): Promise<boolean> {
+  const hosted = await readHostedRooms();
+  return hosted.includes(roomId);
+}
+
 export async function setActiveRoom(room: ActiveRoom): Promise<void> {
+  const hosted = new Set(await readHostedRooms());
+  if (room.isHost) hosted.add(room.roomId);
+  const isHost = room.isHost || hosted.has(room.roomId);
   await AsyncStorage.multiSet([
     [KEYS.activeRoomId, room.roomId],
     [KEYS.activeRoomCode, room.code],
-    [KEYS.isHost, room.isHost ? "1" : "0"],
+    [KEYS.isHost, isHost ? "1" : "0"],
+    [KEYS.hostedRooms, JSON.stringify([...hosted])],
   ]);
 }
 
@@ -55,21 +76,32 @@ export async function getActiveRoom(): Promise<ActiveRoom | null> {
   return { roomId, code, isHost: isHost === "1" };
 }
 
+function countsKey(roomId: string): string {
+  return `${KEYS.cachedCounts}:${roomId}`;
+}
+
 export async function clearActiveRoom(): Promise<void> {
-  await AsyncStorage.multiRemove([
+  const roomId = await AsyncStorage.getItem(KEYS.activeRoomId);
+  const keys: string[] = [
     KEYS.activeRoomId,
     KEYS.activeRoomCode,
     KEYS.isHost,
     KEYS.cachedCounts,
-  ]);
+  ];
+  if (roomId) keys.push(countsKey(roomId));
+  await AsyncStorage.multiRemove(keys);
 }
 
-export async function cacheCounts(counts: TallyCounts): Promise<void> {
-  await AsyncStorage.setItem(KEYS.cachedCounts, JSON.stringify(counts));
+export async function cacheCounts(
+  roomId: string,
+  counts: TallyCounts
+): Promise<void> {
+  await AsyncStorage.setItem(countsKey(roomId), JSON.stringify(counts));
+  await AsyncStorage.removeItem(KEYS.cachedCounts);
 }
 
-export async function getCachedCounts(): Promise<TallyCounts> {
-  const raw = await AsyncStorage.getItem(KEYS.cachedCounts);
+export async function getCachedCounts(roomId: string): Promise<TallyCounts> {
+  const raw = await AsyncStorage.getItem(countsKey(roomId));
   if (!raw) return emptyCounts();
   try {
     return { ...emptyCounts(), ...JSON.parse(raw) };

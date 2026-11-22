@@ -53,8 +53,7 @@ export async function getRoomById(id: string): Promise<Room | null> {
 export async function joinRoomAsPlayer(
   roomId: string,
   deviceId: string,
-  displayName: string,
-  existingCounts?: TallyCounts
+  displayName: string
 ): Promise<Player> {
   const supabase = getSupabase();
   const { data: existing } = await supabase
@@ -141,11 +140,14 @@ export async function updatePlayerCounts(
   return data as Player;
 }
 
-export async function endRoom(roomId: string): Promise<void> {
+export async function endRoom(roomId: string): Promise<Room> {
   const supabase = getSupabase();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("rooms")
     .update({ status: "ended" })
-    .eq("id", roomId);
+    .eq("id", roomId)
+    .select()
+    .single();
   if (error) throw error;
+  return data as Room;
 }

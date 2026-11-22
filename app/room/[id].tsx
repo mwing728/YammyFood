@@ -22,7 +22,11 @@ import {
   joinRoomAsPlayer,
   updatePlayerCounts,
 } from "@/lib/room";
-import { subscribeToRoomPlayers, unsubscribeChannel } from "@/lib/realtime";
+import {
+  subscribeToRoomPlayers,
+  subscribeToRoomStatus,
+  unsubscribeChannel,
+} from "@/lib/realtime";
 import {
   computeTotal,
   countsFromRecord,
@@ -34,9 +38,9 @@ import {
 import {
   cacheCounts,
   getActiveRoom,
-  getCachedCounts,
   getDisplayName,
   getOrCreateDeviceId,
+  isHostedRoom,
   setActiveRoom,
 } from "@/lib/storage";
 import type { Player, Room } from "@/lib/types";
@@ -47,6 +51,17 @@ const SAVE_DELAY_MS = 300;
 export default function RoomScreen() {
   const { id: roomId } = useLocalSearchParams<{ id: string }>();
   const rid = Array.isArray(roomId) ? roomId[0] : roomId;
+  if (!rid) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.muted}>Unable to load contest.</Text>
+      </View>
+    );
+  }
+  return <RoomContest key={rid} roomId={rid} />;
+}
+
+function RoomContest({ roomId: rid }: { roomId: string }) {
 
   const [loading, setLoading] = useState(true);
   const [room, setRoom] = useState<Room | null>(null);
@@ -56,19 +71,25 @@ export default function RoomScreen() {
   const [isHost, setIsHost] = useState(false);
   const [shareHint, setShareHint] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const [endError, setEndError] = useState<string | null>(null);
 
   const countsRef = useRef(counts);
   const playerIdRef = useRef<string | null>(null);
+  const roomIdRef = useRef<string | null>(null);
   countsRef.current = counts;
   playerIdRef.current = me?.id ?? null;
 
   const persistCounts = useCallback(async () => {
     const pid = playerIdRef.current;
-    if (!pid) return;
+    const roomId = roomIdRef.current;
+    const snapshot = countsRef.current;
+    if (!pid || !roomId) return;
     try {
-      const updated = await updatePlayerCounts(pid, countsRef.current);
+      const updated = await updatePlayerCounts(pid, snapshot);
       setMe(updated);
-      await cacheCounts(countsRef.current);
+      await cacheCounts(roomId, snapshot);
       setOffline(false);
     } catch {
       setOffline(true);
@@ -100,11 +121,16 @@ export default function RoomScreen() {
       return;
     }
 
-    let channel: ReturnType<typeof subscribeToRoomPlayers> | null = null;
+    const activeRoomId = rid;
+    roomIdRef.current = activeRoomId;
+    let cancelled = false;
+    let playersChannel: ReturnType<typeof subscribeToRoomPlayers> | null = null;
+    let statusChannel: ReturnType<typeof subscribeToRoomStatus> | null = null;
 
     void (async () => {
       try {
-        const r = await getRoomById(rid);
+        const r = await getRoomById(activeRoomId);
+        if (cancelled) return;
         if (!r) {
           Alert.alert("Not found", "This room does not exist.", [
             { text: "OK", onPress: () => router.replace("/") },
@@ -114,28 +140,38 @@ export default function RoomScreen() {
         setRoom(r);
 
         const active = await getActiveRoom();
-        setIsHost(Boolean(active && active.roomId === rid && active.isHost));
+        if (cancelled) return;
+        const host =
+          (await isHostedRoom(activeRoomId)) ||
+          Boolean(active && active.roomId === activeRoomId && active.isHost);
+        setIsHost(host);
 
         const deviceId = await getOrCreateDeviceId();
         const displayName = (await getDisplayName()) ?? "Player";
 
-        let player = await fetchPlayerInRoom(rid, deviceId);
+        let player = await fetchPlayerInRoom(activeRoomId, deviceId);
         if (!player) {
-          const cached = await getCachedCounts();
-          player = await joinRoomAsPlayer(rid, deviceId, displayName, cached);
+          player = await joinRoomAsPlayer(activeRoomId, deviceId, displayName);
         }
+        if (cancelled) return;
 
         setMe(player);
         const loaded = countsFromRecord(player);
         setCounts(loaded);
         await cacheCounts(loaded);
         await setActiveRoom({
-          roomId: rid,
+          roomId: activeRoomId,
           code: r.code,
-          isHost: Boolean(active && active.roomId === rid && active.isHost),
+          isHost: host,
         });
+        if (cancelled) return;
 
-        channel = subscribeToRoomPlayers(rid, setPlayers);
+        playersChannel = subscribeToRoomPlayers(activeRoomId, setPlayers);
+        statusChannel = subscribeToRoomStatus(activeRoomId, (status) => {
+          setRoom((current) =>
+            current && current.id === activeRoomId ? { ...current, status } : current
+          );
+        });
       } catch (e) {
         Alert.alert("Error", e instanceof Error ? e.message : "Could not load room.");
       } finally {
@@ -144,16 +180,20 @@ export default function RoomScreen() {
     })();
 
     return () => {
-      if (channel) unsubscribeChannel(channel);
+      cancelled = true;
+      debouncedSave.cancel();
+      roomIdRef.current = activeRoomId;
+      if (playersChannel) unsubscribeChannel(playersChannel);
+      if (statusChannel) unsubscribeChannel(statusChannel);
       void persistCounts();
     };
-  }, [rid, persistCounts]);
+  }, [rid, persistCounts, debouncedSave]);
 
   const bump = (field: keyof TallyCounts, delta: number) => {
-    if (room?.status === "ended") return;
+    if (!room || room.id !== rid || room.status === "ended" || me?.room_id !== rid) return;
     setCounts((prev) => {
       const next = { ...prev, [field]: Math.max(0, prev[field] + delta) };
-      void cacheCounts(next);
+      if (rid) void cacheCounts(rid, next);
       return next;
     });
     if (delta > 0) {
@@ -169,23 +209,19 @@ export default function RoomScreen() {
     setTimeout(() => setShareHint(null), 2500);
   };
 
-  const onEndContest = () => {
-    Alert.alert("End contest?", "Scores stay on the board; tallying will be locked.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "End",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await endRoom(rid!);
-            const r = await getRoomById(rid!);
-            if (r) setRoom(r);
-          } catch (e) {
-            Alert.alert("Error", e instanceof Error ? e.message : "Could not end.");
-          }
-        },
-      },
-    ]);
+  const confirmEndContest = async () => {
+    if (!rid || ending) return;
+    setEnding(true);
+    setEndError(null);
+    try {
+      const updated = await endRoom(rid);
+      setRoom(updated);
+      setConfirmEnd(false);
+    } catch (e) {
+      setEndError(e instanceof Error ? e.message : "Could not end.");
+    } finally {
+      setEnding(false);
+    }
   };
 
   if (loading) {
@@ -208,6 +244,7 @@ export default function RoomScreen() {
   const locked = room.status === "ended";
 
   return (
+    <View style={styles.screen}>
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.content}
@@ -260,20 +297,66 @@ export default function RoomScreen() {
         roomEnded={locked}
       />
 
-      {isHost && !locked ? (
-        <Pressable style={styles.endBtn} onPress={onEndContest}>
-          <Text style={styles.endBtnText}>End contest</Text>
-        </Pressable>
-      ) : null}
-
       <Pressable style={styles.homeLink} onPress={() => router.push("/")}>
         <Text style={styles.homeLinkText}>Home (scores saved)</Text>
       </Pressable>
     </ScrollView>
+
+    {isHost && !locked ? (
+      <View style={styles.footer}>
+        <Pressable
+          style={styles.endBtn}
+          accessibilityRole="button"
+          onPress={() => {
+            setEndError(null);
+            setConfirmEnd(true);
+          }}
+        >
+          <Text style={styles.endBtnText}>End contest</Text>
+        </Pressable>
+      </View>
+    ) : null}
+
+    {confirmEnd ? (
+      <View style={styles.modalBackdrop}>
+        <View style={styles.endConfirm}>
+          <Text style={styles.endConfirmTitle}>End contest?</Text>
+          <Text style={styles.endConfirmBody}>
+            Scores stay on the board. Nobody will be able to add more pieces.
+          </Text>
+          {endError ? <Text style={styles.endError}>{endError}</Text> : null}
+          <View style={styles.endActions}>
+            <Pressable
+              style={styles.endCancel}
+              accessibilityRole="button"
+              onPress={() => {
+                setConfirmEnd(false);
+                setEndError(null);
+              }}
+              disabled={ending}
+            >
+              <Text style={styles.endCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.endConfirmBtn, ending && styles.btnDisabled]}
+              accessibilityRole="button"
+              onPress={() => void confirmEndContest()}
+              disabled={ending}
+            >
+              <Text style={styles.endConfirmBtnText}>
+                {ending ? "Ending…" : "End contest"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { flex: 1, backgroundColor: colors.bg },
   content: {
     padding: 20,
@@ -336,15 +419,64 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 8,
   },
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.bg,
+  },
   endBtn: {
-    marginTop: 24,
-    borderWidth: 1,
-    borderColor: colors.accentDim,
-    paddingVertical: 14,
+    backgroundColor: colors.accent,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
   },
-  endBtnText: { color: colors.accent, fontWeight: "600" },
+  endBtnText: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  modalBackdrop: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(0,0,0,0.72)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  endConfirm: {
+    borderWidth: 1,
+    borderColor: colors.accentDim,
+    borderRadius: 16,
+    padding: 20,
+    backgroundColor: colors.card,
+  },
+  endConfirmTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  endConfirmBody: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  endError: { color: "#ffb4a8", fontSize: 13, marginTop: 8 },
+  endActions: { flexDirection: "row", gap: 10, marginTop: 14 },
+  endCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    backgroundColor: colors.highlight,
+  },
+  endCancelText: { color: colors.text, fontWeight: "600" },
+  endConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    backgroundColor: colors.accent,
+  },
+  endConfirmBtnText: { color: colors.text, fontWeight: "700" },
+  btnDisabled: { opacity: 0.6 },
   homeLink: { marginTop: 16, alignItems: "center" },
   homeLinkText: { color: colors.muted, fontSize: 14 },
 });

@@ -51,6 +51,24 @@ create policy "players_select" on players for select using (true);
 create policy "players_insert" on players for insert with check (true);
 create policy "players_update" on players for update using (true);
 
--- Realtime: Dashboard → Database → Publications → supabase_realtime → enable `players`
--- Or run (if allowed on your project):
--- alter publication supabase_realtime add table players;
+-- Realtime: publish players and rooms. Safe to re-run if a table is already in the publication.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'players'
+  ) then
+    alter publication supabase_realtime add table players;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'rooms'
+  ) then
+    alter publication supabase_realtime add table rooms;
+  end if;
+end $$;
