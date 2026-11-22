@@ -43,32 +43,32 @@ export function TallyRow({
       ) : (
         <View style={[styles.photo, styles.photoPlaceholder]} />
       )}
-      <View style={styles.body}>
-        <View style={styles.labelBlock}>
-          <Text style={styles.label}>{label}</Text>
-          <Text style={styles.sub}>
-            {pointsPer} pt{pointsPer > 1 ? "s" : ""} / piece
-          </Text>
-        </View>
-        <View style={styles.controls}>
-          <Pressable
-            style={[styles.btn, (count === 0 || disabled) && styles.btnDisabled]}
-            onPress={onDecrement}
-            disabled={disabled || count === 0}
-            accessibilityLabel={`Decrease ${label}`}
-          >
-            <Text style={styles.btnText}>−</Text>
-          </Pressable>
-          <Text style={styles.count}>{count}</Text>
-          <Pressable
-            style={[styles.btnPrimary, disabled && styles.btnDisabled]}
-            onPress={onIncrement}
-            disabled={disabled}
-            accessibilityLabel={`Increase ${label}`}
-          >
-            <Text style={styles.btnText}>+</Text>
-          </Pressable>
-        </View>
+      <View style={styles.labelBlock}>
+        <Text style={styles.label} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={styles.sub}>
+          {pointsPer} pt{pointsPer > 1 ? "s" : ""}
+        </Text>
+      </View>
+      <View style={styles.controls}>
+        <Pressable
+          style={[styles.btn, (count === 0 || disabled) && styles.btnDisabled]}
+          onPress={onDecrement}
+          disabled={disabled || count === 0}
+          accessibilityLabel={`Decrease ${label}`}
+        >
+          <Text style={styles.btnText}>−</Text>
+        </Pressable>
+        <Text style={styles.count}>{count}</Text>
+        <Pressable
+          style={[styles.btnPrimary, disabled && styles.btnDisabled]}
+          onPress={onIncrement}
+          disabled={disabled}
+          accessibilityLabel={`Increase ${label}`}
+        >
+          <Text style={styles.btnText}>+</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -76,56 +76,54 @@ export function TallyRow({
 
 const styles = StyleSheet.create({
   row: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.card,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.border,
+    paddingRight: 8,
+    minHeight: 64,
     overflow: "hidden",
   },
   photo: {
-    width: "100%",
-    height: 148,
+    width: 56,
+    height: 56,
+    margin: 4,
+    borderRadius: 8,
     backgroundColor: "#11161c",
   },
   photoPlaceholder: {
     backgroundColor: colors.highlight,
   },
-  body: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  labelBlock: { flex: 1, minWidth: 72 },
-  label: { color: colors.text, fontSize: 17, fontWeight: "600" },
-  sub: { color: colors.muted, fontSize: 13, marginTop: 4 },
-  controls: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 0 },
+  labelBlock: { flex: 1, minWidth: 0, paddingHorizontal: 8 },
+  label: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  sub: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  controls: { flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 0 },
   btn: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: colors.highlight,
     alignItems: "center",
     justifyContent: "center",
   },
   btnPrimary: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
   },
   btnDisabled: { opacity: 0.35 },
-  btnText: { color: colors.text, fontSize: 24, fontWeight: "600", lineHeight: 28 },
+  btnText: { color: colors.text, fontSize: 22, fontWeight: "600", lineHeight: 26 },
   count: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "700",
-    minWidth: 36,
+    minWidth: 28,
     textAlign: "center",
   },
 });

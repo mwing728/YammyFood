@@ -13,7 +13,7 @@ import { TallyRow } from "@/components/TallyRow";
 import { Leaderboard } from "@/components/Leaderboard";
 import { colors } from "@/constants/theme";
 import { useDebouncedCallback } from "@/hooks/useDebouncedSave";
-import { shareOrCopyJoinLink, getJoinUrl } from "@/lib/links";
+import { shareOrCopyJoinLink } from "@/lib/links";
 import {
   endRoom,
   fetchPlayerInRoom,
@@ -269,9 +269,6 @@ function RoomContest({ roomId: rid }: { roomId: string }) {
         </Pressable>
       </View>
       {shareHint ? <Text style={styles.shareHint}>{shareHint}</Text> : null}
-      <Text style={styles.linkPreview} numberOfLines={1}>
-        {getJoinUrl(room.code)}
-      </Text>
 
       <View style={styles.totalCard}>
         <Text style={styles.totalLabel}>Your total</Text>
@@ -362,8 +359,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { flex: 1, backgroundColor: colors.bg },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 12,
+    paddingBottom: 24,
     maxWidth: 480,
     width: "100%",
     alignSelf: "center",
@@ -410,24 +407,24 @@ const styles = StyleSheet.create({
   },
   shareBtnText: { color: colors.text, fontWeight: "700" },
   shareHint: { color: colors.success, fontSize: 13, marginBottom: 4 },
-  linkPreview: { color: colors.muted, fontSize: 11, marginBottom: 16 },
   totalCard: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  totalLabel: { color: colors.muted, fontSize: 14 },
-  totalValue: { color: colors.success, fontSize: 48, fontWeight: "900" },
+  totalLabel: { color: colors.muted, fontSize: 12 },
+  totalValue: { color: colors.success, fontSize: 32, fontWeight: "900", lineHeight: 36 },
   locked: { color: colors.muted, marginTop: 8, fontSize: 13 },
   sectionTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   footer: {
     paddingHorizontal: 20,
